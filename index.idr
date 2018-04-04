@@ -2,11 +2,12 @@ module Lockmeout
 
 import IdrisScript
 import IdrisScript.Objects
+import Coda.Date
 
-getName : (JSValue (JSObject c)) -> JS_IO String
-getName event = case !(getProperty "name" event) of
-                     Just (JSString ** res) => pure (fromJS res)
-                     _               => pure "N/A"
+record Secret where
+    constructor MkSecret
+    token, data : String
+    lockedUntil : Date
 
 export
 LambdaCallback : Type
@@ -19,6 +20,14 @@ CallbackType = String
 export
 Event : Type
 Event = JSValue (JSObject "Object")
+
+findSecret : String -> Maybe Secret
+findSecret token = 
+
+getName : (JSValue (JSObject c)) -> JS_IO String
+getName event = case !(getProperty "name" event) of
+                     Just (JSString ** res) => pure (fromJS res)
+                     _               => pure "N/A"
 
 export
 MkCallback : CallbackType -> LambdaCallback
