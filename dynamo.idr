@@ -4,6 +4,11 @@ import IdrisScript
 import IdrisScript.Arrays
 import IdrisScript.Objects
 
+import Control.ST
+import Control.ST.Random
+
+import Data.Vect
+
 AWSLib : Type
 AWSLib = JSValue (JSObject "Object")
 
@@ -30,13 +35,21 @@ DynamoDB lib = do
   db <- jscall "new %0.DynamoDB.DocumentClient({apiVersion: '2012-08-10'})" (Ptr -> JS_IO Ptr) (unpack lib)
   pure $ MkJSFunction db
 
-MkToken : JS_IO String
-MkToken = pure "HHEHEHE"
+letters : Vect 4 Char
+letters = with Vect ['a','b','c','d']
+
+MkTokenL : Integer -> ST m Char []
+MkTokenL init = do var <- new init
+                   val <- rndSelect' var letters
+                   delete var
+                   pure val
+
+MkToken : Integer -> String
+MkToken init = concat $ map (\x => singleton $ runPure (MkTokenL (init+x))) [0..20]
 
 putItem : (db : JSValue JSFunction) -> (table : String) -> (name : String) -> JS_IO ()
 putItem db table name = do
     item <- IdrisScript.Objects.empty
-    token <- MkToken
     setProperty "token" (toJS {to=JSString} token) item
     setProperty "name" (toJS {to=JSString} name) item 
     params <- IdrisScript.Objects.empty
@@ -44,6 +57,9 @@ putItem db table name = do
     setProperty "Item" item params
     res <- jscall "%0.put(%1, function(err) { console.log(err); })" (Ptr -> Ptr -> JS_IO ()) (unpack db) (unpack params)
     pure ()
+  where
+      token : String
+      token = MkToken 4949
 
 export
 putItemInDB : String -> JS_IO ()
