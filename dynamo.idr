@@ -27,13 +27,13 @@ AWSConfigSet config key val = setProperty key (toJS {to=JSString} val) config
 
 DynamoDB : AWSLib -> JS_IO (JSValue JSFunction)
 DynamoDB lib = do
-  db <- jscall "%0.DynamoDB" (Ptr -> JS_IO Ptr) (unpack lib)
+  db <- jscall "new %0.DynamoDB.DocumentClient({apiVersion: '2012-08-10'})" (Ptr -> JS_IO Ptr) (unpack lib)
   pure $ MkJSFunction db
 
 MkToken : JS_IO String
 MkToken = pure "HHEHEHE"
 
-putItem : (db : JSValue (JSObject _)) -> (table : String) -> (name : String) -> JS_IO ()
+putItem : (db : JSValue JSFunction) -> (table : String) -> (name : String) -> JS_IO ()
 putItem db table name = do
     item <- IdrisScript.Objects.empty
     token <- MkToken
@@ -51,11 +51,7 @@ putItemInDB name = do
   aws <- MkAWS
   maybe_cfg <- getConfig aws
   case maybe_cfg of
-      Just cfg => do AWSConfigSet cfg "region" "us-west-2"
+      Just cfg => do AWSConfigSet cfg "region" "us-east-2"
                      dynamo <- DynamoDB aws
-                     args <- with Arrays empty
-                     mydb <- new dynamo args
-                     case mydb of
-                       (c ** k) => putItem k "lockeditems" name
-                       _        => log (toJS {to=JSString} "Nope")
+                     putItem dynamo "lockeditems" name
       Nothing  => pure ()
