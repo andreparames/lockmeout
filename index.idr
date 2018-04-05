@@ -2,12 +2,12 @@ module Lockmeout
 
 import IdrisScript
 import IdrisScript.Objects
-import Coda.Date
+
+import dynamo
 
 record Secret where
     constructor MkSecret
-    token, data : String
-    lockedUntil : Date
+    token: String
 
 export
 LambdaCallback : Type
@@ -21,8 +21,6 @@ export
 Event : Type
 Event = JSValue (JSObject "Object")
 
-findSecret : String -> Maybe Secret
-findSecret token = 
 
 getName : (JSValue (JSObject c)) -> JS_IO String
 getName event = case !(getProperty "name" event) of
@@ -42,17 +40,13 @@ ToEvent = \x => MkJSObject x
 export
 handler : JSRef -> JSRef -> String -> JS_IO ()
 handler event context callfunc = do name <- getName (ToEvent (event))
+                                    putItemInDB name
                                     callback ("The name is " ++ name)
                                  where
                                     callback = MkCallback callfunc
 
-export
-aref : JSRef -> JS_IO ()
-aref x = jscall "%0.name" (JSRef -> JS_IO ()) x
-
 exports : FFI_Export FFI_JS "" []
 exports = Data Event "Event" $
-          Fun aref "Ref" $
           Fun handler "handler" $
           End
 

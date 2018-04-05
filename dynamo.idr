@@ -30,19 +30,32 @@ DynamoDB lib = do
   db <- jscall "%0.DynamoDB" (Ptr -> JS_IO Ptr) (unpack lib)
   pure $ MkJSFunction db
 
-putItem : (db : DB) -> (table : String) -> (item : DBItem) -> JS_IO ()
+MkToken : JS_IO String
+MkToken = pure "HHEHEHE"
 
-namespace Main
-  main : JS_IO ()
-  main = do
-    aws <- MkAWS
-    maybe_cfg <- getConfig aws
-    case maybe_cfg of
-        Just cfg => do AWSConfigSet "region" "us-west-2" cfg
-                       dynamo <- DynamoDB aws
-                       args <- with Arrays empty
-                       mydb <- new dynamo args
-                       case mydb of
-                         (c ** k) => log k
-                         _        => log (toJS {to=JSString} "Nope")
-        Nothing  => pure ()
+putItem : (db : JSValue (JSObject _)) -> (table : String) -> (name : String) -> JS_IO ()
+putItem db table name = do
+    item <- IdrisScript.Objects.empty
+    token <- MkToken
+    setProperty "token" (toJS {to=JSString} token) item
+    setProperty "name" (toJS {to=JSString} name) item 
+    params <- IdrisScript.Objects.empty
+    setProperty "TableName" (toJS {to=JSString} table) params
+    setProperty "Item" item params
+    res <- jscall "%0.put(%1, function(err) { console.log(err); })" (Ptr -> Ptr -> JS_IO ()) (unpack db) (unpack params)
+    pure ()
+
+export
+putItemInDB : String -> JS_IO ()
+putItemInDB name = do
+  aws <- MkAWS
+  maybe_cfg <- getConfig aws
+  case maybe_cfg of
+      Just cfg => do AWSConfigSet cfg "region" "us-west-2"
+                     dynamo <- DynamoDB aws
+                     args <- with Arrays empty
+                     mydb <- new dynamo args
+                     case mydb of
+                       (c ** k) => putItem k "lockeditems" name
+                       _        => log (toJS {to=JSString} "Nope")
+      Nothing  => pure ()
