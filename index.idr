@@ -21,7 +21,6 @@ export
 Event : Type
 Event = JSValue (JSObject "Object")
 
-
 getName : (JSValue (JSObject c)) -> JS_IO String
 getName event = case !(getProperty "name" event) of
                      Just (JSString ** res) => pure (fromJS res)
@@ -37,12 +36,20 @@ MkCallback ref = \x => jscall callingcode (CallbackType -> String -> JS_IO ()) r
 ToEvent : JSRef -> Event
 ToEvent = \x => MkJSObject x
 
+MkToken : (len : Nat) -> JS_IO (String)
+MkToken len = jscall "require('crypto').randomBytes(%0).toString('hex')" (Int -> JS_IO (String)) (toIntNat len)
+
 export
 handler : JSRef -> JSRef -> String -> JS_IO ()
 handler event context callfunc = do name <- getName (ToEvent (event))
-                                    putItemInDB name
-                                    callback ("The name is " ++ name)
+                                    case !(GetDynamoDB US_EAST_2) of
+                                      Just db => do token <- MkToken 32
+                                                    let items = [(MkDBItem "token" token), (MkDBItem "name" name)]
+                                                    putItem db "lockitems" items
+                                                    callback ("The name is " ++ name)
+                                      Nothing => callback ("Err")
                                  where
+                                    callback : LambdaCallback
                                     callback = MkCallback callfunc
 
 exports : FFI_Export FFI_JS "" []
